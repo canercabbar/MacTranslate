@@ -126,6 +126,7 @@ final class ViewController: NSViewController {
         )
         webView = WebView(frame: initialFrame, configuration: configuration)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
         
         webView.load(URLRequest(url: Constants.Translation.translateURL))
@@ -175,6 +176,21 @@ extension ViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         webView.evaluateJavaScript(inPageShortcutsScript)
         isReady = true
+    }
+}
+
+// MARK: - WKUIDelegate
+
+extension ViewController: WKUIDelegate {
+    @available(macOS 12.0, *)
+    func webView(
+        _ webView: WKWebView,
+        requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo,
+        type: WKMediaCaptureType,
+        decisionHandler: @escaping (WKPermissionDecision) -> Void
+    ) {
+        decisionHandler(.grant)
     }
 }
 
