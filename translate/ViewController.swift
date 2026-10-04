@@ -122,15 +122,12 @@ final class ViewController: NSViewController {
         configuration.userContentController.add(self, name: Self.scriptHandlerName)
         configuration.userContentController.add(self, name: "logHandler")
         
-        // Enable media capture and WebRTC / audio recording in WKWebView
+        // Enable modern webpage preferences
         let pagePrefs = configuration.defaultWebpagePreferences ?? WKWebpagePreferences()
         pagePrefs.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = pagePrefs
         
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        configuration.preferences.setValue(true, forKey: "mediaDevicesEnabled")
-        configuration.preferences.setValue(true, forKey: "mediaCaptureEnabled")
-        configuration.preferences.setValue(true, forKey: "webRTCMediaCaptureEnabled")
         
         let hideScript = WKUserScript(
             source: hideUIStyles,
@@ -203,6 +200,7 @@ extension ViewController: WKNavigationDelegate {
 // MARK: - WKUIDelegate
 
 extension ViewController: WKUIDelegate {
+    @available(macOS 12.0, *)
     func webView(
         _ webView: WKWebView,
         requestMediaCapturePermissionFor origin: WKSecurityOrigin,
