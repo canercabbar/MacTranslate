@@ -21,6 +21,15 @@ final class ViewController: NSViewController {
     /// Script handler message name for JavaScript to Swift communication.
     private static let scriptHandlerName = "callbackHandler"
     
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        // Request microphone access ahead of time so the system prompt appears
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            print("Microphone access status: \(granted)")
+        }
+    }
+    
     /// CSS injection to hide Google Translate's headers, footers, promo banners, and scrollbars.
     private var hideUIStyles: String {
         return """
@@ -111,6 +120,7 @@ final class ViewController: NSViewController {
     override func loadView() {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: Self.scriptHandlerName)
+        configuration.userContentController.add(self, name: "logHandler")
         
         // Enable media capture and WebRTC / audio recording in WKWebView
         let pagePrefs = configuration.defaultWebpagePreferences ?? WKWebpagePreferences()
@@ -118,6 +128,9 @@ final class ViewController: NSViewController {
         configuration.defaultWebpagePreferences = pagePrefs
         
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        configuration.preferences.setValue(true, forKey: "mediaDevicesEnabled")
+        configuration.preferences.setValue(true, forKey: "mediaCaptureEnabled")
+        configuration.preferences.setValue(true, forKey: "webRTCMediaCaptureEnabled")
         
         let hideScript = WKUserScript(
             source: hideUIStyles,
@@ -190,7 +203,6 @@ extension ViewController: WKNavigationDelegate {
 // MARK: - WKUIDelegate
 
 extension ViewController: WKUIDelegate {
-    @available(macOS 12.0, *)
     func webView(
         _ webView: WKWebView,
         requestMediaCapturePermissionFor origin: WKSecurityOrigin,
@@ -198,20 +210,7 @@ extension ViewController: WKUIDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            decisionHandler(.grant)
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                DispatchQueue.main.async {
-                    decisionHandler(granted ? .grant : .deny)
-                }
-            }
-        case .denied, .restricted:
-            decisionHandler(.deny)
-        @unknown default:
-            decisionHandler(.deny)
-        }
+        decisionHandler(.grant)
     }
 }
 
@@ -219,6 +218,11 @@ extension ViewController: WKUIDelegate {
 
 extension ViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "logHandler" {
+            print("Web Log: \(message.body)")
+            return
+        }
+        
         guard let keyCode = message.body as? Int else { return }
         
         // Tab key code (9) pressed in Google Translate text area
