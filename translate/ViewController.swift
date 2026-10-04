@@ -5,6 +5,7 @@
 
 import Cocoa
 import WebKit
+import AVFoundation
 
 /// Main view controller managing the Google Translate WKWebView instance and JavaScript integrations.
 final class ViewController: NSViewController {
@@ -111,6 +112,13 @@ final class ViewController: NSViewController {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: Self.scriptHandlerName)
         
+        // Enable media capture and WebRTC / audio recording in WKWebView
+        let pagePrefs = configuration.defaultWebpagePreferences ?? WKWebpagePreferences()
+        pagePrefs.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences = pagePrefs
+        
+        configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        
         let hideScript = WKUserScript(
             source: hideUIStyles,
             injectionTime: .atDocumentStart,
@@ -190,7 +198,20 @@ extension ViewController: WKUIDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
-        decisionHandler(.grant)
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            decisionHandler(.grant)
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                DispatchQueue.main.async {
+                    decisionHandler(granted ? .grant : .deny)
+                }
+            }
+        case .denied, .restricted:
+            decisionHandler(.deny)
+        @unknown default:
+            decisionHandler(.deny)
+        }
     }
 }
 
