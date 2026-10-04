@@ -5,7 +5,6 @@
 
 import Cocoa
 import WebKit
-import AVFoundation
 
 /// Main view controller managing the Google Translate WKWebView instance and JavaScript integrations.
 final class ViewController: NSViewController {
@@ -21,16 +20,7 @@ final class ViewController: NSViewController {
     /// Script handler message name for JavaScript to Swift communication.
     private static let scriptHandlerName = "callbackHandler"
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        // Request microphone access ahead of time so the system prompt appears
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            print("Microphone access status: \(granted)")
-        }
-    }
-    
-    /// CSS injection to hide Google Translate's headers, footers, promo banners, and scrollbars.
+    /// CSS injection to hide Google Translate's headers, footers, microphone button, promo banners, and scrollbars.
     private var hideUIStyles: String {
         return """
         (function() {
@@ -43,6 +33,10 @@ final class ViewController: NSViewController {
                 [jsname="tbSMse"],
                 [jsname="lZZ7be"],
                 [jsname="la0nce"],
+                [aria-label*="voice" i],
+                [aria-label*="mic" i],
+                [aria-label*="ses" i],
+                [jsname="R5L45e"],
                 .feedback-link,
                 a[href*="translate/problem"],
                 #kvLWu, .VjFXz, .VlPnLc, .ebT7ne,
@@ -120,9 +114,7 @@ final class ViewController: NSViewController {
     override func loadView() {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: Self.scriptHandlerName)
-        configuration.userContentController.add(self, name: "logHandler")
         
-        // Enable modern webpage preferences
         let pagePrefs = configuration.defaultWebpagePreferences ?? WKWebpagePreferences()
         pagePrefs.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = pagePrefs
@@ -144,7 +136,6 @@ final class ViewController: NSViewController {
         )
         webView = WebView(frame: initialFrame, configuration: configuration)
         webView.navigationDelegate = self
-        webView.uiDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
         
         webView.load(URLRequest(url: Constants.Translation.translateURL))
@@ -197,30 +188,10 @@ extension ViewController: WKNavigationDelegate {
     }
 }
 
-// MARK: - WKUIDelegate
-
-extension ViewController: WKUIDelegate {
-    @available(macOS 12.0, *)
-    func webView(
-        _ webView: WKWebView,
-        requestMediaCapturePermissionFor origin: WKSecurityOrigin,
-        initiatedByFrame frame: WKFrameInfo,
-        type: WKMediaCaptureType,
-        decisionHandler: @escaping (WKPermissionDecision) -> Void
-    ) {
-        decisionHandler(.grant)
-    }
-}
-
 // MARK: - WKScriptMessageHandler
 
 extension ViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "logHandler" {
-            print("Web Log: \(message.body)")
-            return
-        }
-        
         guard let keyCode = message.body as? Int else { return }
         
         // Tab key code (9) pressed in Google Translate text area
